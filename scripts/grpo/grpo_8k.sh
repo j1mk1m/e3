@@ -1,7 +1,7 @@
 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
-    data.train_files=$HOME/math-curriculum/data/$DATA_DISTRIBUTION.parquet \
-    data.val_files=$HOME/math-curriculum/data/test.parquet \
+    data.train_files=$LOCAL_DIR/data/e3/$DATA_DISTRIBUTION.parquet \
+    data.val_files=$LOCAL_DIR/data/e3/test.parquet \
     data.train_batch_size=128 \
     data.max_prompt_length=512 \
     data.max_response_length=$CONTEXT_LENGTH \
@@ -35,8 +35,9 @@ python3 -m verl.trainer.main_ppo \
     custom_reward_function.path=verl/utils/reward_score/curriculum_math/compute_score.py \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
-    trainer.project_name=Math \
+    trainer.project_name=e3 \
     trainer.experiment_name=$EXPERIMENT_NAME \
+    trainer.default_local_dir=$LOCAL_DIR/checkpoints/e3/$EXPERIMENT_NAME \
     trainer.val_before_train=True \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
