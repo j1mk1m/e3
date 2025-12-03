@@ -8,8 +8,8 @@
 #SBATCH --mem=64GB
 #SBATCH --cpus-per-task=8 # cpus
 
-#SBATCH --output=/home/gyeongwk/logs/%x-%j.out # output log
-#SBATCH --error=/home/gyeongwk/logs/%x-%j.err # error log
+#SBATCH --output=logs/%x-%j.out # output log
+#SBATCH --error=logs/%x-%j.err # error log
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=j1mk1m.dummy@gmail.com
 

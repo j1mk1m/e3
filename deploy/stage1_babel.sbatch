@@ -1,5 +1,6 @@
 #!/bin/bash
-#SBATCH --partition preempt
+#SBATCH --partition flame-earlybird
+#SBATCH --qos earlybird-qos
 #SBATCH --time 0-23:00 # set time
 #SBATCH --job-name=e3
 #SBATCH --chdir=/home/gyeongwk/e3 # working directory
@@ -8,8 +9,8 @@
 #SBATCH --mem=64GB
 #SBATCH --cpus-per-task=8 # cpus
 
-#SBATCH --output=/home/gyeongwk/logs/%x-%j.out # output log
-#SBATCH --error=/home/gyeongwk/logs/%x-%j.err # error log
+#SBATCH --output=logs/%x-%j.out # output log
+#SBATCH --error=logs/%x-%j.err # error log
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=j1mk1m.dummy@gmail.com
 
