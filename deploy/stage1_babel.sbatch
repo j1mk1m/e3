@@ -5,7 +5,7 @@
 #SBATCH --job-name=e3
 #SBATCH --chdir=/home/gyeongwk/e3 # working directory
 
-#SBATCH --gres=gpu:A6000:8
+#SBATCH --gres=gpu:H100:8
 #SBATCH --mem=64GB
 #SBATCH --cpus-per-task=8 # cpus
 

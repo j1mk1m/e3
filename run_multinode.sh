@@ -1,28 +1,37 @@
 #!/bin/bash
 #SBATCH --job-name=ray-multi
-#SBATCH --partition=flame # Or your desired partition
+#SBATCH --partition=preempt # Or your desired partition
 #SBATCH --nodes=4           # Request exactly 2 nodes
 #SBATCH --ntasks-per-node=1 # Run one main task per node (for ray start)
 #SBATCH --gres=gpu:8        # 8 GPUs per node
 #SBATCH --cpus-per-task=96  # 16 CPUs per node (ensure nodes have this many cores available)
 #SBATCH --mem=1024G         # 1024G RAM per node (ensure nodes have this much memory)
 #SBATCH --time=47:59:00
-#SBATCH --output=slurm-ray-%j.out
-#SBATCH --error=slurm-ray-%j.err  # Good practice for separate error logs
-#SBATCH --qos=flame-t2_g1_qos
-#SBATCH --account=aviralku
+#SBATCH --output=logs/slurm-ray-%j.out
+#SBATCH --error=logs/slurm-ray-%j.err  # Good practice for separate error logs
+
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=j1mk1m.dummy@gmail.com
 
 
-# lost flame-t2_g1_qos? flame-t1b_g1_qos? preempt_qos
+# --- Experiment configuration --
+export EPOCHS=20
+export LOCAL_DIR=/project/flame/gyeongwk
+export N_GPUS_PER_NODE=8
+export NNODES=4
+export DATA_DISTRIBUTION=math_medhard
+export EXPERIMENT_NAME=e3_stage2
+export BASE_MODEL=/project/flame/gyeongwk/checkpoints/e3/e3_stage1/global_step_200/actor/hf-format
+export CONTEXT_LENGTH=16384
 
 
 # --- Configuration ---
 RAY_PORT=6379            # Default Ray port 6379
 RAY_DASHBOARD_PORT=8265 # Default Ray dashboard port 8265
 # Define the absolute path to the working directory for the job
-JOB_WORKING_DIR="/home/asetlur/math-curriculum"
+JOB_WORKING_DIR="/home/gyeongwk/e3"
 # Define the script to run *relative to the working directory*
-JOB_SCRIPT_NAME="$JOB_WORKING_DIR/scripts/grpo/grpo_16k.sh"
+JOB_SCRIPT_NAME="$JOB_WORKING_DIR/scripts/grpo/grpo.sh"
 # JOB_SCRIPT_NAME="$JOB_WORKING_DIR/scripts/eval.sh"
 # JOB_SCRIPT_NAME="$JOB_WORKING_DIR/scripts/grpo/grpo_24k.sh"
 # JOB_SCRIPT_NAME="$JOB_WORKING_DIR/scripts/grpo/grpo_32k.sh"
@@ -60,7 +69,7 @@ echo "Starting Ray head node on $head_node..."
 # Use SLURM_CPUS_PER_TASK and SLURM_GPUS_ON_NODE which Slurm should set based on --cpus-per-task and --gres
 # Note: --gres=gpu:8 with --ntasks-per-node=1 should result in SLURM_GPUS_ON_NODE=8
 srun --export=ALL --nodes=1 --ntasks=1 -w "$head_node" \
-    /project/flame/asetlur/miniconda3/envs/verl/bin/ray start --head --node-ip-address="$head_node_ip" --port=$RAY_PORT --dashboard-host=0.0.0.0 --dashboard-port=$RAY_DASHBOARD_PORT \
+    /home/gyeongwk/miniconda3/envs/verl/bin/ray start --head --node-ip-address="$head_node_ip" --port=$RAY_PORT --dashboard-host=0.0.0.0 --dashboard-port=$RAY_DASHBOARD_PORT \
     --num-cpus=$SLURM_CPUS_PER_TASK --num-gpus=$SLURM_GPUS_ON_NODE \
     --block &
 head_pid=$! # Store PID if needed for explicit kill later (optional)
@@ -73,12 +82,12 @@ worker_pids=()
 for worker_node in "${worker_nodes[@]}"; do
     echo "Starting worker on $worker_node"
     srun --export=ALL --nodes=1 --ntasks=1 -w "$worker_node" \
-        /project/flame/asetlur/miniconda3/envs/verl/bin/ray start --address="$head_node_ip:$RAY_PORT" \
+        /home/gyeongwk/miniconda3/envs/verl/bin/ray start --address="$head_node_ip:$RAY_PORT" \
         --num-cpus=$SLURM_CPUS_PER_TASK --num-gpus=$SLURM_GPUS_ON_NODE \
         --block &
     worker_pids+=($!) # Store worker PIDs (optional)
     # Optional: sleep briefly between starting workers if needed
-    # sleep 5
+    sleep 5
 done
 echo "Ray worker PIDs: ${worker_pids[@]}"
 
@@ -89,7 +98,7 @@ sleep 20 # Increased sleep time, adjust as needed
 # --- Optional: Check Cluster Status ---
 echo "Checking Ray cluster status..."
 # Run status check directly, as srun might still fail here if nodes are busy initializing
-/project/flame/asetlur/miniconda3/envs/verl/bin/ray status || echo "WARNING: Ray status check failed or cluster not fully ready yet."
+/home/gyeongwk/miniconda3/envs/verl/bin/ray status || echo "WARNING: Ray status check failed or cluster not fully ready yet."
 sleep 5
 
 # --- Submit Ray Job ---
@@ -98,18 +107,17 @@ echo "Submitting Ray job: $JOB_SCRIPT_NAME from $JOB_WORKING_DIR"
 # Execute ray job submit directly from the main script context
 # Ensure the JOB_SCRIPT_NAME is executable and exists within JOB_WORKING_DIR
 
-# srun --export=ALL --nodes=1 --ntasks=1 -w "$head_node" \
-#     cd $JOB_WORKING_DIR & bash $JOB_SCRIPT_NAME \
-#     --block &
+srun --export=ALL --nodes=1 --ntasks=1 -w "$head_node" \
+    cd $JOB_WORKING_DIR & bash $JOB_SCRIPT_NAME
 
 # job_submit_status=$(srun --export=ALL --nodes=1 --ntasks=1 -w "$head_node" \
 #     /project/flame/asetlur/miniconda3/envs/verl/bin/ray job submit --address="http://127.0.0.1:8265"  --no-wait --runtime-env $JOB_WORKING_DIR/runtime_env.yaml sh -c "cd $JOB_WORKING_DIR && exec bash $JOB_SCRIPT_NAME")
 
-/project/flame/asetlur/miniconda3/envs/verl/bin/ray job submit --address="http://$head_node_ip:$RAY_DASHBOARD_PORT" \
-  --no-wait \
-  --runtime-env $JOB_WORKING_DIR/runtime_env.yaml \
-  -- sh -c "exec bash $JOB_SCRIPT_NAME"
+# /home/gyeongwk/miniconda3/envs/verl/bin/ray job submit --address="http://$head_node_ip:$RAY_DASHBOARD_PORT" \
+#   --no-wait \
+#   -- sh -c "exec bash $JOB_SCRIPT_NAME"
 
+    #   --runtime-env $JOB_WORKING_DIR/runtime_env.yaml \
 # Check the exit status of job submission
 # job_submit_status=$?
 if [ $job_submit_status -ne 0 ]; then

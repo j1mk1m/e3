@@ -4,7 +4,7 @@ python3 -m verl.trainer.main_ppo \
     data.val_files=$LOCAL_DIR/data/e3/test.parquet \
     data.train_batch_size=128 \
     data.max_prompt_length=512 \
-    data.max_response_length=$CONTEXT_LENGTH \
+    data.max_response_length=$((CONTEXT_LENGTH - 512)) \
     data.max_extrapolation_length=$((2 * CONTEXT_LENGTH)) \
     data.filter_overlong_prompts=True \
     actor_rollout_ref.model.path=$BASE_MODEL \
@@ -26,6 +26,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.temperature=0.6 \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.9 \
     actor_rollout_ref.rollout.max_num_batched_tokens=16384 \
+    actor_rollout_ref.rollout.do_sample=True \
     actor_rollout_ref.rollout.n=8 \
     actor_rollout_ref.rollout.val_kwargs.n=8 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
