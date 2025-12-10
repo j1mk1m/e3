@@ -98,8 +98,8 @@ class vLLMRollout(BaseRollout):
             assert model_hf_config.max_position_embeddings >= config.prompt_length + config.extrapolation_length, \
                 "model context length should be greater than total extrapolaion sequence length"
         else:
-            assert model_hf_config.max_position_embeddings >= config.prompt_length + config.response_length, \
-                "model context length should be greater than total sequence length"
+            assert model_hf_config.max_position_embeddings >= config.prompt_length + config.response_length or model_hf_config.rope_scaling is not None, \
+                f"model context length should be greater than total sequence length {model_hf_config.rope_scaling}"
 
         if config.max_model_len is not None:
             max_model_len = config.max_model_len

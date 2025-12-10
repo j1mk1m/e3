@@ -14,11 +14,47 @@
 
 import torch
 from torch import nn
-from typing import Optional, Union, Iterable, Tuple, Set
+from torch.distributed._tensor import DTensor
+from typing import Optional, Union, Iterable, Tuple, Set, Dict
 from transformers import PretrainedConfig
 from vllm.model_executor.layers.fused_moe import FusedMoE
 from vllm.model_executor.model_loader.weight_utils import (default_weight_loader, maybe_remap_kv_scale_name)
 from vllm.model_executor.models.utils import is_pp_missing_parameter
+ 
+
+def patched_olmo_load_weights(model: nn.Module, weights: Iterable[Tuple[str, torch.Tensor]]) -> Set[str]:
+    stacked_params_mapping = [
+        # (param_name, shard_name, shard_id)
+        ("qkv_proj", "q_proj", "q"),
+        ("qkv_proj", "k_proj", "k"),
+        ("qkv_proj", "v_proj", "v"),
+        ("gate_up_proj", "gate_proj", 0),
+        ("gate_up_proj", "up_proj", 1),
+    ]
+
+    params_dict = dict(model.named_parameters(remove_duplicate=False))
+    loaded_params: set[str] = set()
+    for name, loaded_weight in weights:
+        for param_name, weight_name, shard_id in stacked_params_mapping:
+            if weight_name not in name:
+                continue
+            name = name.replace(weight_name, param_name)
+            # Skip loading extra bias for GPTQ models.
+            if name.endswith(".bias") and name not in params_dict:
+                continue
+            param = params_dict[name]
+            weight_loader = param.weight_loader  # type: ignore
+            weight_loader(param, loaded_weight.to(dtype=param.dtype), shard_id)
+            break
+        else:
+            # Skip loading extra bias for GPTQ models.
+            if name.endswith(".bias") and name not in params_dict:
+                continue
+            param = params_dict[name]
+            weight_loader = getattr(param, "weight_loader", default_weight_loader)
+            weight_loader(param, loaded_weight.to(dtype=param.dtype))
+        loaded_params.add(name)
+    return loaded_params
 
 
 def patched_ds_v3_load_weights(model: nn.Module, weights: Iterable[Tuple[str, torch.Tensor]]) -> Set[str]:

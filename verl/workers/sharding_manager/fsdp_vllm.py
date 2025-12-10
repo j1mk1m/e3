@@ -29,7 +29,7 @@ from verl.utils.debug import log_gpu_memory_usage
 from verl.third_party.vllm import vllm_version
 
 from .base import BaseShardingManager
-from .patch import patched_ds_v3_load_weights
+from .patch import patched_ds_v3_load_weights, patched_olmo_load_weights
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv('VERL_PPO_LOGGING_LEVEL', 'WARN'))
@@ -97,6 +97,11 @@ class FSDPVLLMShardingManager(BaseShardingManager):
             model = self.inference_engine.llm_engine.model_executor.driver_worker.worker.model_runner.model
             if model.config.architectures[0] in ['DeepseekV2ForCausalLM', 'DeepseekV3ForCausalLM']:
                 loaded_params = patched_ds_v3_load_weights(
+                    model, ((name, param.full_tensor() if world_size != 1 and hasattr(param, 'full_tensor') else param)
+                            for name, param in params.items()))
+            elif model.config.architectures[0] in ['Olmo2ForCausalLM']:
+                logger.info("Loading OLMo2 weights")
+                loaded_params = patched_olmo_load_weights(
                     model, ((name, param.full_tensor() if world_size != 1 and hasattr(param, 'full_tensor') else param)
                             for name, param in params.items()))
             else:
